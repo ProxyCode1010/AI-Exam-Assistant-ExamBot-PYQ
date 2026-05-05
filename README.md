@@ -1,1 +1,1 @@
-# AI-Exam-Assistant-ExamBot---PYQ-
+# AI Exam Assistant (ExamBot - PYQ)
