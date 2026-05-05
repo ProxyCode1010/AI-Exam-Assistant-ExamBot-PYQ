@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Exam Assistant v3</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#0c0c10; --bg2:#13131a; --bg3:#1a1a24; --bg4:#20202e;
+      --border:#272735; --border2:#32324a;
+      --purple:#6c63ff; --purple-dim:#3d3880; --purple-glow:rgba(108,99,255,0.15);
+      --green:#34d399; --green-dim:#1a3a2e;
+      --text:#e2e2f0; --text2:#9090b8; --text3:#55556a;
+      --red:#f87171; --red-dim:#2a1515; --amber:#fbbf24;
+    }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+    .shell { display:grid; grid-template-columns:250px 1fr; min-height:100vh; }
+
+    /* SIDEBAR */
+    .sidebar { background:var(--bg2); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:1.25rem 1rem; gap:1.5rem; position:sticky; top:0; height:100vh; overflow-y:auto; }
+    .logo { display:flex; align-items:center; gap:10px; }
+    .logo-icon { width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg,#6c63ff,#4f46e5); display:flex; align-items:center; justify-content:center; font-size:18px; box-shadow:0 0 16px rgba(108,99,255,0.35); flex-shrink:0; }
+    .logo-text { font-size:15px; font-weight:700; }
+    .logo-sub { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.04em; }
+    .sb-label { font-size:10px; font-weight:600; letter-spacing:0.1em; color:var(--text3); text-transform:uppercase; padding:0 8px; margin-bottom:4px; }
+    .sb-section { display:flex; flex-direction:column; gap:2px; }
+    .topic-btn { display:flex; align-items:center; gap:8px; width:100%; text-align:left; padding:7px 10px; border-radius:8px; border:1px solid transparent; background:transparent; color:var(--text2); font-size:13px; cursor:pointer; transition:all 0.15s; }
+    .topic-btn:hover { background:var(--bg4); color:var(--text); }
+    .topic-btn.active { background:var(--purple-glow); color:#a89aff; border-color:var(--purple-dim); }
+    .t-icon { font-size:14px; width:18px; text-align:center; flex-shrink:0; }
+    .sb-divider { height:1px; background:var(--border); }
+    .stats-card { margin-top:auto; background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:0.9rem; }
+    .stat-row { display:flex; justify-content:space-between; padding:4px 0; }
+    .stat-k { font-size:11px; color:var(--text3); }
+    .stat-v { font-size:12px; font-weight:600; color:var(--text2); }
+    .stat-v.live { color:var(--green); }
+
+    /* MAIN */
+    .main { display:flex; flex-direction:column; }
+    .topbar { background:var(--bg2); border-bottom:1px solid var(--border); padding:0.9rem 1.5rem; display:flex; gap:10px; position:sticky; top:0; z-index:10; }
+    .search-wrap { flex:1; display:flex; gap:8px; position:relative; }
+    .si { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text3); pointer-events:none; }
+    .search-wrap input { flex:1; background:var(--bg); border:1px solid var(--border2); border-radius:9px; padding:9px 14px 9px 34px; color:var(--text); font-size:14px; outline:none; transition:border 0.2s,box-shadow 0.2s; }
+    .search-wrap input:focus { border-color:var(--purple); box-shadow:0 0 0 3px var(--purple-glow); }
+    .search-wrap input::placeholder { color:var(--text3); }
+    .btn-go { background:linear-gradient(135deg,#6c63ff,#4f46e5); color:#fff; border:none; padding:9px 20px; border-radius:9px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; box-shadow:0 2px 12px rgba(108,99,255,0.3); transition:opacity 0.15s; }
+    .btn-go:hover { opacity:0.88; }
+    .btn-go:disabled { opacity:0.35; cursor:not-allowed; }
+    .content { flex:1; padding:1.5rem; }
+
+    /* EMPTY */
+    .empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; height:65vh; gap:1rem; text-align:center; }
+    .empty-glow { width:80px; height:80px; border-radius:20px; background:linear-gradient(135deg,#6c63ff22,#4f46e522); border:1px solid var(--purple-dim); display:flex; align-items:center; justify-content:center; font-size:36px; box-shadow:0 0 40px rgba(108,99,255,0.15); }
+    .empty-title { font-size:18px; font-weight:600; color:var(--text2); }
+    .empty-sub { font-size:13px; color:var(--text3); max-width:340px; line-height:1.7; }
+    .empty-chips { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+    .e-chip { font-size:12px; padding:5px 12px; border-radius:20px; border:1px solid var(--border2); color:var(--text2); cursor:pointer; background:transparent; transition:all 0.15s; }
+    .e-chip:hover { background:var(--purple-glow); color:#a89aff; border-color:var(--purple-dim); }
+
+    /* PIPELINE */
+    .pipeline { display:flex; align-items:center; gap:6px; margin-bottom:1.25rem; }
+    .ps { display:flex; align-items:center; gap:6px; font-size:11px; padding:4px 10px; border-radius:20px; background:var(--bg3); color:var(--text3); border:1px solid var(--border); transition:all 0.3s; }
+    .ps.done   { background:var(--green-dim); color:var(--green); border-color:#1f5a42; }
+    .ps.active { background:var(--purple-glow); color:#a89aff; border-color:var(--purple-dim); }
+    .pdot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+    .pspin { width:8px; height:8px; border-radius:50%; border:1.5px solid currentColor; border-top-color:transparent; animation:spin 0.6s linear infinite; }
+    .psep { color:var(--border2); font-size:16px; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    /* RESULTS */
+    .rg { display:grid; grid-template-columns:1fr 1.5fr; gap:1.25rem; align-items:start; }
+    .panel { background:var(--bg2); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .ph { padding:0.7rem 1rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .pt { font-size:11px; font-weight:700; letter-spacing:0.08em; color:var(--text3); text-transform:uppercase; }
+    .pb-badge { font-size:10px; padding:2px 8px; border-radius:10px; background:var(--purple-glow); color:#a89aff; border:1px solid var(--purple-dim); }
+    .pb { padding:0.6rem; }
+
+    /* PYQ ROW */
+    .pyq-wrap { border-radius:8px; margin-bottom:4px; border:1px solid var(--border); background:var(--bg3); overflow:hidden; }
+    .pyq-wrap:hover { border-color:var(--purple-dim); }
+    .pyq-row { display:flex; align-items:stretch; min-height:42px; }
+    .pyq-main { display:flex; align-items:flex-start; gap:8px; padding:9px 8px; flex:1; }
+    .sc { font-size:9px; font-weight:700; padding:2px 5px; border-radius:5px; background:var(--bg4); color:var(--text3); flex-shrink:0; margin-top:2px; font-family:monospace; }
+    .sc.high { background:#1a2e20; color:var(--green); }
+    .sc.mid  { background:#2a2515; color:var(--amber); }
+    .qt { font-size:13px; line-height:1.5; color:#c8c8e8; }
+
+    /* ANSWER BUTTON — always visible, prominent */
+    .abtn {
+      flex-shrink:0; min-width:82px;
+      display:flex; align-items:center; justify-content:center; gap:5px;
+      padding:0 12px; border:none; border-left:1px solid var(--border2);
+      background:var(--bg4); color:#a89aff;
+      font-size:11px; font-weight:700; cursor:pointer;
+      transition:all 0.15s; letter-spacing:0.03em;
+    }
+    .abtn:hover { background:var(--purple-glow); border-left-color:var(--purple-dim); }
+    .abtn.open  { background:var(--purple-glow); border-left-color:var(--purple-dim); color:#c4beff; }
+    .abtn .sp { width:10px; height:10px; border-radius:50%; border:1.5px solid #a89aff; border-top-color:transparent; animation:spin 0.6s linear infinite; display:inline-block; }
+
+    /* ANSWER DRAWER */
+    .adr { display:none; border-top:1px solid var(--border); background:var(--bg3); padding:1rem; }
+    .adr.open { display:block; animation:sd 0.2s ease; }
+    @keyframes sd { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:translateY(0)} }
+    .adr h3 { font-size:12px; font-weight:700; color:#a89aff; margin:.8rem 0 .3rem; }
+    .adr h3:first-child { margin-top:0; }
+    .adr p  { font-size:13px; color:#c0c0e0; line-height:1.75; margin-bottom:5px; }
+    .adr ol,.adr ul { padding-left:1.2rem; font-size:13px; color:#c0c0e0; line-height:1.75; }
+    .adr li { margin-bottom:4px; }
+    .adr strong { color:var(--text); font-weight:600; }
+    .adr pre { background:#090910; border:1px solid var(--border2); border-radius:7px; padding:.75rem; margin:8px 0; font-size:12px; color:#a8f0c8; overflow-x:auto; font-family:monospace; line-height:1.6; }
+    .df { margin-top:10px; padding-top:8px; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .dtag { font-size:10px; color:var(--text3); }
+    .closebtn { font-size:11px; color:var(--text3); background:transparent; border:1px solid var(--border); border-radius:6px; padding:3px 8px; cursor:pointer; }
+    .closebtn:hover { color:var(--red); border-color:var(--red); }
+
+    /* LLM */
+    .llm-body { padding:1rem 1.1rem; }
+    .llm-body h3 { font-size:12px; font-weight:700; color:#a89aff; margin:1rem 0 .4rem; }
+    .llm-body h3:first-child { margin-top:0; }
+    .llm-body ol,.llm-body ul { padding-left:1.2rem; color:#c0c0e0; font-size:13px; line-height:1.75; }
+    .llm-body li { margin-bottom:5px; }
+    .llm-body p { font-size:13px; color:#c0c0e0; line-height:1.75; margin-bottom:8px; }
+    .llm-body strong { color:var(--text); font-weight:600; }
+    .ll { display:flex; align-items:center; gap:10px; padding:1.5rem; color:var(--text3); font-size:13px; }
+    .lsp { width:16px; height:16px; border-radius:50%; border:2px solid var(--border2); border-top-color:var(--purple); animation:spin 0.7s linear infinite; flex-shrink:0; }
+
+    .ebar { background:var(--red-dim); border:1px solid #5a2a2a; border-radius:8px; padding:.75rem 1rem; font-size:13px; color:var(--red); margin-bottom:1rem; }
+
+    /* TOAST */
+    .toast { position:fixed; bottom:24px; right:24px; background:var(--bg3); border:1px solid var(--border2); border-radius:10px; padding:10px 16px; font-size:13px; color:var(--text2); box-shadow:0 8px 30px rgba(0,0,0,.5); z-index:9999; animation:ti .25s ease; }
+    @keyframes ti { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+    /* VERSION TAG (so you can confirm new file loaded) */
+    .ver { position:fixed; bottom:6px; left:8px; font-size:9px; color:var(--text3); opacity:0.4; }
+
+    @media(max-width:900px) { .shell{grid-template-columns:1fr} .sidebar{display:none} .rg{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+<div class="ver">v4 — cache busted</div>
+
+<div class="shell">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">🎓</div>
+      <div><div class="logo-text">ExamBot AI</div><div class="logo-sub">RAG + LLM</div></div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-label">Quick Topics</div>
+      <button class="topic-btn" id="sb0"><span class="t-icon">⚙️</span>Servlet</button>
+      <button class="topic-btn" id="sb1"><span class="t-icon">🌐</span>JSP</button>
+      <button class="topic-btn" id="sb2"><span class="t-icon">🗄️</span>Hibernate</button>
+      <button class="topic-btn" id="sb3"><span class="t-icon">🌿</span>Spring</button>
+      <button class="topic-btn" id="sb4"><span class="t-icon">🏗️</span>Struts 2</button>
+      <button class="topic-btn" id="sb5"><span class="t-icon">📧</span>Java Mail API</button>
+      <button class="topic-btn" id="sb6"><span class="t-icon">📱</span>Android</button>
+      <button class="topic-btn" id="sb7"><span class="t-icon">🧩</span>Design Patterns</button>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="stats-card">
+      <div class="sb-label" style="margin-bottom:8px">System</div>
+      <div class="stat-row"><span class="stat-k">Questions in DB</span><span class="stat-v live" id="dbtotal">—</span></div>
+      <div class="stat-row"><span class="stat-k">Embed</span><span class="stat-v">MiniLM-L6</span></div>
+      <div class="stat-row"><span class="stat-k">LLM</span><span class="stat-v">Llama 3.3-70b</span></div>
+      <div class="stat-row"><span class="stat-k">Top-K</span><span class="stat-v">8</span></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="search-wrap">
+        <span class="si">🔍</span>
+        <input id="tinput" type="text" placeholder="Enter topic — Servlet, Hibernate, JSP…" />
+        <button class="btn-go" id="gobtn">Generate ↗</button>
+      </div>
+    </div>
+    <div class="content" id="content">
+      <div class="empty-state">
+        <div class="empty-glow">📚</div>
+        <div class="empty-title">Ask about any exam topic</div>
+        <div class="empty-sub">Pick a topic or type one. Retrieved PYQs each have an <strong>Answer</strong> button for full exam answers.</div>
+        <div class="empty-chips">
+          <button class="e-chip" id="ec0">Servlet</button>
+          <button class="e-chip" id="ec1">Hibernate</button>
+          <button class="e-chip" id="ec2">Spring</button>
+          <button class="e-chip" id="ec3">JSP</button>
+          <button class="e-chip" id="ec4">Android</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── config ───────────────────────────────────────────────── */
+const SIDEBAR_TOPICS = ['Servlet','JSP','Hibernate','Spring','Struts 2','Java Mail API','Android','Design Patterns'];
+const CHIP_TOPICS    = ['Servlet','Hibernate','Spring','JSP','Android'];
+
+/* ── state ────────────────────────────────────────────────── */
+let PYQ_LIST   = [];   // [{question, score}, ...]
+let ANS_CACHE  = {};   // idx → html
+let activeSB   = null;
+
+/* ── boot: wire all static buttons ───────────────────────── */
+SIDEBAR_TOPICS.forEach((t, i) => {
+  document.getElementById('sb' + i).onclick = () => go(t, 'sb' + i);
+});
+CHIP_TOPICS.forEach((t, i) => {
+  document.getElementById('ec' + i).onclick = () => go(t, null);
+});
+document.getElementById('gobtn').onclick = runPipeline;
+document.getElementById('tinput').onkeydown = e => { if (e.key === 'Enter') runPipeline(); };
+
+function go(topic, sideId) {
+  document.getElementById('tinput').value = topic;
+  if (activeSB) { document.getElementById(activeSB)?.classList.remove('active'); }
+  if (sideId)   { document.getElementById(sideId).classList.add('active'); activeSB = sideId; }
+  runPipeline();
+}
+
+/* ── health ───────────────────────────────────────────────── */
+(async () => {
+  try {
+    const d = await fetch('/health').then(r => r.json());
+    document.getElementById('dbtotal').textContent = d.questions_in_db;
+  } catch {}
+})();
+
+/* ── pipeline steps ───────────────────────────────────────── */
+function pipeHTML() {
+  return ['embed query','retrieve PYQs','LLM synthesis'].map((l,i) =>
+    `${i>0?'<span class="psep">›</span>':''}<div class="ps" id="ps${i}"><span class="pdot"></span>${l}</div>`
+  ).join('');
+}
+
+function setPipe(active) {   // 0-based, -1 = all done
+  ['embed query','retrieve PYQs','LLM synthesis'].forEach((l,i) => {
+    const el = document.getElementById('ps'+i);
+    if (!el) return;
+    if (active === -1 || i < active) {
+      el.className='ps done'; el.innerHTML=`<span style="font-size:10px">✓</span> ${l}`;
+    } else if (i === active) {
+      el.className='ps active'; el.innerHTML=`<span class="pspin"></span> ${l}`;
+    } else {
+      el.className='ps'; el.innerHTML=`<span class="pdot"></span> ${l}`;
+    }
+  });
+}
+
+/* ── render PYQ list ──────────────────────────────────────── */
+function scoreClass(s) { return s>=0.75?'high':s>=0.55?'mid':''; }
+
+function renderPYQs(list) {
+  PYQ_LIST  = list;
+  ANS_CACHE = {};
+  return list.map((r, i) => `
+    <div class="pyq-wrap" id="pw${i}">
+      <div class="pyq-row">
+        <div class="pyq-main">
+          <span class="sc ${scoreClass(r.score)}">${r.score.toFixed(3)}</span>
+          <span class="qt">${esc(r.question)}</span>
+        </div>
+        <button class="abtn" id="ab${i}">✦ Answer</button>
+      </div>
+      <div class="adr" id="ad${i}"></div>
+    </div>`).join('');
+}
+
+/* CRITICAL: wire buttons after HTML is in DOM */
+function wireButtons(n) {
+  for (let i = 0; i < n; i++) {
+    (function(idx) {                         // ← IIFE captures idx correctly
+      const btn = document.getElementById('ab' + idx);
+      if (!btn) { console.error('btn not found: ab'+idx); return; }
+      btn.onclick = function() { handleAnswer(idx); };
+    })(i);
+  }
+}
+
+/* ── answer handler ───────────────────────────────────────── */
+async function handleAnswer(idx) {
+  const btn    = document.getElementById('ab'  + idx);
+  const drawer = document.getElementById('ad'  + idx);
+  const q      = PYQ_LIST[idx]?.question;
+
+  if (!btn || !drawer) { console.error('Missing DOM for idx', idx); return; }
+  if (!q)              { console.error('No question for idx', idx); return; }
+
+  /* close */
+  if (drawer.classList.contains('open')) {
+    drawer.classList.remove('open');
+    btn.classList.remove('open');
+    btn.innerHTML = '✦ Answer';
+    return;
+  }
+
+  /* cached */
+  if (ANS_CACHE[idx]) {
+    drawer.innerHTML = ANS_CACHE[idx];
+    drawer.classList.add('open');
+    btn.classList.add('open');
+    btn.innerHTML = '✕ Close';
+    rewireClose(idx);
+    return;
+  }
+
+  /* fetch */
+  btn.innerHTML = '<span class="sp"></span>';
+  drawer.innerHTML = '<div class="ll"><div class="lsp"></div>Generating answer…</div>';
+  drawer.classList.add('open');
+
+  try {
+    const resp = await fetch('/answer', {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ question: q })
+    });
+
+    let errText = '';
+    if (!resp.ok) {
+      try { const j = await resp.json(); errText = j.detail || JSON.stringify(j); }
+      catch { errText = await resp.text(); }
+      throw new Error(`HTTP ${resp.status}: ${errText}`);
+    }
+
+    const data = await resp.json();
+    const html = `
+      <div>${mdHtml(data.answer)}</div>
+      <div class="df">
+        <span class="dtag">🤖 Llama 3.3-70b</span>
+        <button class="closebtn" id="cb${idx}">✕ Close</button>
+      </div>`;
+
+    ANS_CACHE[idx] = html;
+    drawer.innerHTML = html;
+    btn.classList.add('open');
+    btn.innerHTML = '✕ Close';
+    rewireClose(idx);
+
+  } catch(err) {
+    console.error('Answer error:', err);
+    drawer.innerHTML = `<div style="padding:.75rem;font-size:13px;color:var(--red)">⚠️ ${esc(err.message)}</div>`;
+    btn.innerHTML = '✦ Retry';
+    toast('Failed: ' + err.message);
+  }
+}
+
+function rewireClose(idx) {
+  const cb = document.getElementById('cb'+idx);
+  if (cb) cb.onclick = () => {
+    document.getElementById('ad'+idx).classList.remove('open');
+    const b = document.getElementById('ab'+idx);
+    if (b) { b.classList.remove('open'); b.innerHTML='✦ Answer'; }
+  };
+}
+
+/* ── markdown → html ──────────────────────────────────────── */
+function mdHtml(md) {
+  md = md.replace(/```[\w]*\n?([\s\S]*?)```/g, (_,c)=>`<pre>${esc(c.trim())}</pre>`);
+  md = md.replace(/###\s+(.+)/g,'<h3>$1</h3>');
+  md = md.replace(/##\s+(.+)/g, '<h3>$1</h3>');
+  md = md.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  md = md.replace(/^\d+\.\s+(.+)$/gm,'<li>$1</li>');
+  md = md.replace(/^[-*]\s+(.+)$/gm,'<li>$1</li>');
+  md = md.replace(/((<li>[^\0]*?<\/li>\n?)+)/g, s=>`<ol>${s}</ol>`);
+  md = md.replace(/\n{2,}/g,'</p><p>');
+  md = md.replace(/^(?!<)(.+)$/gm, s=>s.trim()?`<p>${s}</p>`:'');
+  return md.replace(/<p><\/p>/g,'');
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ── toast ────────────────────────────────────────────────── */
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 3500);
+}
+
+/* ── main pipeline ────────────────────────────────────────── */
+async function runPipeline() {
+  const topic = document.getElementById('tinput').value.trim();
+  if (!topic) { toast('Enter a topic first'); return; }
+
+  const goBtn = document.getElementById('gobtn');
+  goBtn.disabled=true; goBtn.textContent='Thinking…';
+
+  const content = document.getElementById('content');
+  content.innerHTML = `<div class="pipeline">${pipeHTML()}</div><div id="ea"></div><div id="ra"></div>`;
+
+  setPipe(0); await sleep(180);
+  setPipe(1);
+
+  let data;
+  try {
+    const resp = await fetch('/ask', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ topic, top_k:8 })
+    });
+    if (!resp.ok) {
+      const j = await resp.json().catch(()=>({}));
+      throw new Error(j.detail || `HTTP ${resp.status}`);
+    }
+    data = await resp.json();
+  } catch(e) {
+    document.getElementById('ea').innerHTML = `<div class="ebar">⚠️ ${esc(e.message)}</div>`;
+    goBtn.disabled=false; goBtn.textContent='Generate ↗';
+    return;
+  }
+
+  setPipe(2);
+
+  /* ── insert HTML ── */
+  document.getElementById('ra').innerHTML = `
+    <div class="rg">
+      <div class="panel">
+        <div class="ph">
+          <span class="pt">Retrieved PYQs</span>
+          <span class="pb-badge">${data.retrieved.length} matched</span>
+        </div>
+        <div class="pb" id="pyqbody">${renderPYQs(data.retrieved)}</div>
+      </div>
+      <div class="panel">
+        <div class="ph">
+          <span class="pt">LLM — Ranked + Predicted</span>
+          <span class="pb-badge">Llama 3.3-70b</span>
+        </div>
+        <div id="llmslot"><div class="ll"><div class="lsp"></div>Rendering…</div></div>
+      </div>
+    </div>`;
+
+  /* ── wire answer buttons AFTER DOM insert ── */
+  wireButtons(data.retrieved.length);
+
+  /* ── LLM output ── */
+  await sleep(150);
+  setPipe(-1);
+  document.getElementById('llmslot').innerHTML =
+    `<div class="llm-body">${mdHtml(data.llm_output)}</div>`;
+
+  document.getElementById('dbtotal').textContent = data.total_in_db;
+  goBtn.disabled=false; goBtn.textContent='Generate ↗';
+  toast(`✓ ${data.retrieved.length} PYQs retrieved for "${topic}"`);
+}
+
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+</script>
+</body>
+</html>
